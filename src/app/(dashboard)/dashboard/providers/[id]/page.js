@@ -93,6 +93,8 @@ export default function ProviderDetailPage() {
   const stopOneByOneRef = useRef(false);
   const [importingQoderModels, setImportingQoderModels] = useState(false);
   const [checkingQoderIn, setCheckingQoderIn] = useState(false);
+  const [qoderUmidStatus, setQoderUmidStatus] = useState(null);
+  const [installingQoderUmid, setInstallingQoderUmid] = useState(false);
   const [importingClineModels, setImportingClineModels] = useState(false);
   const { copied, copy } = useCopyToClipboard();
 
@@ -596,6 +598,27 @@ export default function ProviderDetailPage() {
       }
     } catch (error) {
       console.log("Error deleting custom model:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (providerId !== "qoder") return;
+    fetch("/api/qoder-umid").then(res => res.json()).then(setQoderUmidStatus).catch(() => setQoderUmidStatus(null));
+  }, [providerId]);
+
+  const handleInstallQoderUmid = async () => {
+    if (installingQoderUmid) return;
+    setInstallingQoderUmid(true);
+    try {
+      const res = await fetch("/api/qoder-umid/install", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "UMID installation failed");
+      setQoderUmidStatus(data);
+      alert("Qoder UMID component installed successfully.");
+    } catch (error) {
+      alert(error.message || "UMID installation failed.");
+    } finally {
+      setInstallingQoderUmid(false);
     }
   };
 
@@ -1280,17 +1303,32 @@ export default function ProviderDetailPage() {
           Add Model
         </button>
 
-        {providerId === "qoder-cn" && connections.some(conn => conn.isActive !== false) && (
-          <button
-            onClick={handleQoderCheckin}
-            disabled={checkingQoderIn}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-emerald-500/40 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400 transition-colors hover:border-emerald-500 hover:bg-emerald-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-sm" style={checkingQoderIn ? { animation: "spin 1s linear infinite" } : undefined}>
-              {checkingQoderIn ? "progress_activity" : "event_available"}
-            </span>
-            {checkingQoderIn ? "Checking in..." : "Qoder Daily Check-in"}
-          </button>
+        {providerId === "qoder" && connections.some(conn => conn.isActive !== false) && (
+          <>
+            {qoderUmidStatus?.available ? (
+              <button
+                onClick={handleQoderCheckin}
+                disabled={checkingQoderIn}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-emerald-500/40 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400 transition-colors hover:border-emerald-500 hover:bg-emerald-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="material-symbols-outlined text-sm" style={checkingQoderIn ? { animation: "spin 1s linear infinite" } : undefined}>
+                  {checkingQoderIn ? "progress_activity" : "event_available"}
+                </span>
+                {checkingQoderIn ? "Checking in..." : "Qoder Daily Check-in"}
+              </button>
+            ) : qoderUmidStatus?.installSupported ? (
+              <button
+                onClick={handleInstallQoderUmid}
+                disabled={installingQoderUmid}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-emerald-500/40 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400 transition-colors hover:border-emerald-500 hover:bg-emerald-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="material-symbols-outlined text-sm">{installingQoderUmid ? "progress_activity" : "download"}</span>
+                {installingQoderUmid ? "Installing UMID..." : "Install Qoder UMID"}
+              </button>
+            ) : qoderUmidStatus ? (
+              <span className="text-xs text-muted-foreground">Install Qoder or Qoder CLI on the gateway host to enable international check-in.</span>
+            ) : null}
+          </>
         )}
 
         {/* Import Qoder models button — only show for qoder/qoder-cn provider */}

@@ -95,7 +95,9 @@ RUN mkdir -p /app/data && chown -R node:node /app && \
 
 # Avoid a full distribution upgrade in the runtime image. It makes builds less
 # reproducible and is unrelated to installing the runtime entrypoint helper.
-RUN apk add --no-cache su-exec ffmpeg && \
+RUN apk add --no-cache su-exec ffmpeg gcompat libstdc++ && \
+  mkdir -p /lib64 && \
+  if [ -e /lib/ld-linux-x86-64.so.2 ]; then ln -sf /lib/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2; fi && \
   printf '#!/bin/sh\nchown -R node:node /app/data /app/data-home 2>/dev/null\nexec su-exec node "$@"\n' > /entrypoint.sh && \
   chmod +x /entrypoint.sh
 
