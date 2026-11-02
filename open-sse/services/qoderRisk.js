@@ -36,12 +36,13 @@ function candidates() {
   try {
     for (const entry of fs.readdirSync(bin, { withFileTypes: true })) {
       if (entry.isDirectory() && entry.name.startsWith("umid-")) cliPaths.push(path.join(bin, entry.name, name));
+      else if (entry.isFile() && entry.name.startsWith("runtime-info")) cliPaths.push(path.join(bin, entry.name));
     }
   } catch {}
   return [
     ...appPaths.map(executable => ({ executable, env: "3" })),
-    ...cliPaths.map(executable => ({ executable, env: "4" })),
-    { executable: path.join(getWritableDataDir(), "qoder-umid", name), env: "4" },
+    ...cliPaths.map(executable => ({ executable, env: "3" })),
+    { executable: path.join(getWritableDataDir(), "qoder-umid", name), env: "3" },
   ];
 }
 
@@ -177,7 +178,7 @@ export async function installQoderUmid() {
     const temporary = `${target}.${process.pid}.tmp`;
     fs.writeFileSync(temporary, executable, { mode: 0o755 });
     try {
-      await runUmid(temporary, "install-test", "4");
+      await runUmid(temporary, "install-test", "3");
     } catch (error) {
       fs.rmSync(temporary, { force: true });
       throw new Error(`UMID component could not run on this host: ${error.message}`);
