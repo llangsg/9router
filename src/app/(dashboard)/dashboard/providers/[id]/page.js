@@ -92,6 +92,7 @@ export default function ProviderDetailPage() {
   const [oneByOneSummary, setOneByOneSummary] = useState(null);
   const stopOneByOneRef = useRef(false);
   const [importingQoderModels, setImportingQoderModels] = useState(false);
+  const [checkingQoderIn, setCheckingQoderIn] = useState(false);
   const [importingClineModels, setImportingClineModels] = useState(false);
   const { copied, copy } = useCopyToClipboard();
 
@@ -595,6 +596,22 @@ export default function ProviderDetailPage() {
       }
     } catch (error) {
       console.log("Error deleting custom model:", error);
+    }
+  };
+
+  const handleQoderCheckin = async () => {
+    if (checkingQoderIn) return;
+    const activeConnection = connections.find(conn => conn.isActive !== false);
+    if (!activeConnection) return;
+    setCheckingQoderIn(true);
+    try {
+      const res = await fetch(`/api/usage/${activeConnection.id}/qoder-checkin`, { method: "POST" });
+      const data = await res.json();
+      alert(data.message || data.error || "Qoder check-in request finished.");
+    } catch (error) {
+      alert(error.message || "Qoder check-in failed.");
+    } finally {
+      setCheckingQoderIn(false);
     }
   };
 
@@ -1262,6 +1279,19 @@ export default function ProviderDetailPage() {
           <span className="material-symbols-outlined text-sm">add</span>
           Add Model
         </button>
+
+        {providerId === "qoder-cn" && connections.some(conn => conn.isActive !== false) && (
+          <button
+            onClick={handleQoderCheckin}
+            disabled={checkingQoderIn}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-emerald-500/40 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400 transition-colors hover:border-emerald-500 hover:bg-emerald-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-sm" style={checkingQoderIn ? { animation: "spin 1s linear infinite" } : undefined}>
+              {checkingQoderIn ? "progress_activity" : "event_available"}
+            </span>
+            {checkingQoderIn ? "Checking in..." : "Qoder Daily Check-in"}
+          </button>
+        )}
 
         {/* Import Qoder models button — only show for qoder/qoder-cn provider */}
         {(providerId === "qoder" || providerId === "qoder-cn") && connections.some((conn) => conn.isActive !== false) && (
