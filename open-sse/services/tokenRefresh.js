@@ -19,6 +19,7 @@ import {
   refreshWindsurfToken,
   refreshMiniMaxCodeToken,
   refreshNousToken,
+  refreshAutoClawIntlToken,
   classifyOAuthRefreshError,
 } from "./tokenRefresh/providers.js";
 
@@ -41,6 +42,7 @@ export {
   refreshWindsurfToken,
   refreshMiniMaxCodeToken,
   refreshNousToken,
+  refreshAutoClawIntlToken,
   classifyOAuthRefreshError,
 };
 
@@ -164,6 +166,7 @@ const REFRESH_HANDLERS = {
   "minimax-code": (c, log) => refreshMiniMaxCodeToken("minimax-code", c.refreshToken, log),
   "minimax-code-global": (c, log) => refreshMiniMaxCodeToken("minimax-code-global", c.refreshToken, log),
   nous: (c, log) => refreshNousToken(c.refreshToken, log),
+  "autoclaw-intl": (c, log) => refreshAutoClawIntlToken(c, log),
   vertex: vertexRefreshHandler,
   "vertex-partner": vertexRefreshHandler
 };

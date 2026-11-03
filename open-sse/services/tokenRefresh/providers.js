@@ -851,3 +851,14 @@ export async function refreshNousToken(refreshToken, log) {
     }
   }, log);
 }
+
+export async function refreshAutoClawIntlToken(credentials, log) {
+  try {
+    const { refreshAutoClawIntlToken: refresh } = await import("../../../src/lib/autoclawIntl.js");
+    const tokens = await refresh(credentials);
+    return tokens ? { ...tokens, expiresIn: tokens.expiresAt ? Math.max(0, Math.floor((Date.parse(tokens.expiresAt) - Date.now()) / 1000)) : undefined } : null;
+  } catch (error) {
+    log?.warn?.("TOKEN_REFRESH", `AutoClaw International refresh failed: ${error.message}`);
+    return null;
+  }
+}

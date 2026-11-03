@@ -39,7 +39,61 @@ function applyAuth(headers, desc, credentials) {
 }
 
 // Provider-specific header quirks kept as small hooks (not pure auth).
+const AUTOCLAW_SYSTEM_PREFIX = "You are a personal assistant running inside OpenClaw.\n\n\n## Tooling\n\nAvailable tools are policy-filtered. Names are case-sensitive; call exactly as listed.\n";
+const AUTOCLAW_FOREIGN_IDENTITIES = [
+  [/You are ZCode, an interactive coding agent/gi, "You are an interactive coding agent"],
+  [/You are a coding agent running in the Codex CLI tool/gi, "You are a coding agent running in a terminal CLI tool"],
+  [/You are a coding agent running in the Codex CLI/gi, "You are a coding agent running in a terminal CLI"],
+  [/You are running as a coding agent in the Codex CLI/gi, "You are running as a coding agent in a terminal CLI"],
+  [/You are Claude Code/gi, "You are a coding assistant"],
+  [/You are ZCode/gi, "You are an interactive coding agent"],
+  [/You are an AI agent powered by DeepSeek Harness/gi, "You are an AI agent powered by a local coding harness"],
+  [/You are Codex/gi, "You are a coding agent"],
+];
+
+function normalizeAutoClawPrompt(body) {
+  if (!Array.isArray(body?.messages)) return body;
+  const messages = body.messages.map(message => {
+    if (!message || !["system", "developer"].includes(message.role)) return message;
+    const rewrite = text => AUTOCLAW_FOREIGN_IDENTITIES.reduce((value, [pattern, replacement]) => value.replace(pattern, replacement), text);
+    if (typeof message.content === "string") return { ...message, content: rewrite(message.content) };
+    if (Array.isArray(message.content)) return { ...message, content: message.content.map(part => typeof part?.text === "string" ? { ...part, text: rewrite(part.text) } : part) };
+    return message;
+  });
+  const first = messages[0];
+  if (first && ["system", "developer"].includes(first.role)) {
+    if (typeof first.content === "string") {
+      if (!first.content.startsWith(AUTOCLAW_SYSTEM_PREFIX.split("\n")[0])) first.content = `${AUTOCLAW_SYSTEM_PREFIX}\n${first.content}`;
+    } else if (Array.isArray(first.content)) {
+      const index = first.content.findIndex(part => typeof part?.text === "string");
+      if (index < 0) first.content.unshift({ type: "text", text: AUTOCLAW_SYSTEM_PREFIX });
+      else if (!first.content[index].text.startsWith(AUTOCLAW_SYSTEM_PREFIX.split("\n")[0])) first.content[index] = { ...first.content[index], text: `${AUTOCLAW_SYSTEM_PREFIX}\n${first.content[index].text}` };
+    } else first.content = AUTOCLAW_SYSTEM_PREFIX;
+  } else messages.unshift({ role: "system", content: AUTOCLAW_SYSTEM_PREFIX });
+  return { ...body, messages };
+}
+
+function resolveAutoClawModel(model) {
+  const requested = String(model || "").trim().toLowerCase().split("/").pop();
+  if (requested === "glm-5.3" || requested === "zaicoding_glm-5.3") return { routeId: "zaicoding_glm-5.3", bodyModel: "glm-5.3" };
+  if (requested === "glm-5.3-flash" || requested === "zai_glm-5.3-flash") return { routeId: "zai_glm-5.3-flash", bodyModel: "glm-5.3-flash" };
+  if (/^[a-z][a-z0-9]*_[a-z0-9][a-z0-9._:-]{0,126}$/.test(requested)) {
+    const bodyModel = requested.startsWith("zaicoding_") ? requested.slice(10) : requested.startsWith("zai_") ? requested.slice(4) : requested;
+    return { routeId: requested, bodyModel };
+  }
+  return { routeId: "zai_auto", bodyModel: "auto" };
+}
+
 const HEADER_HOOKS = {
+  autoclawHeaders: (h, c, model) => {
+    h["X-Request-Model"] = resolveAutoClawModel(model).routeId;
+    h["X-Request-Id"] = randomUUID();
+    const raw = c?.rawHeaders || {};
+    for (const [source, target] of [["x-autoclaw-session-id", "X-Session-Id"], ["x-autoclaw-agent-id", "X-Agent-Id"], ["x-autoclaw-zcode-invocation-id", "X-ZCode-Invocation-Id"]]) {
+      const value = raw[source];
+      if (typeof value === "string" && value.trim()) h[target] = value.trim();
+    }
+  },
   // CodeBuddy (CN + intl): the gateway runs a channel check per request and
   // rejects anything that does not carry the conversation/request identifiers
   // the official plugin sends. Without them upstream answers
@@ -96,6 +150,11 @@ export class DefaultExecutor extends BaseExecutor {
   }
 
   transformRequest(model, body, stream, credentials) {
+    if (this.provider === "autoclaw-intl" && body && typeof body === "object") {
+      body = { ...body, model: resolveAutoClawModel(model).bodyModel };
+      if (Number.isInteger(body.max_tokens) && body.max_tokens > 0 && body.max_tokens < 10000) body.max_tokens = 10000;
+      body = normalizeAutoClawPrompt(body);
+    }
     const transformed = this.applyJsonSchemaFallback(this.applyNousAttribution(model, body, stream, credentials));
 
     if (transformed && typeof transformed === "object") {
@@ -202,7 +261,7 @@ export class DefaultExecutor extends BaseExecutor {
     const headers = { "Content-Type": "application/json", ...(rt ? rt.headers : this.config.headers) };
     const desc = rt?.auth || AUTH_DESCRIPTORS[this.provider] || this.resolveAuthDescriptor();
     // Hooks run BEFORE auth so dynamic overlays can't clobber the token.
-    for (const hook of desc.hooks || []) HEADER_HOOKS[hook]?.(headers, credentials);
+    for (const hook of desc.hooks || []) HEADER_HOOKS[hook]?.(headers, credentials, model, body);
     applyAuth(headers, desc, credentials);
 
     // anthropic-compatible-* nodes serving a real Claude model sit in front of
@@ -266,6 +325,7 @@ export class DefaultExecutor extends BaseExecutor {
     }
 
     if (stream) headers["Accept"] = "text/event-stream";
+    if (this.provider === "autoclaw-intl") headers.Accept = "*/*";
     return headers;
   }
 

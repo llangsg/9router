@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
-import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, ZedAuthModal, XiaomiMimoAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
+import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, AutoClawOAuthModal, KiroOAuthWrapper, CursorAuthModal, ZedAuthModal, XiaomiMimoAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
@@ -94,6 +94,7 @@ export default function ProviderDetailPage() {
   const qoderUmidInstallStartedRef = useRef(false);
   const [importingQoderModels, setImportingQoderModels] = useState(false);
   const [checkingQoderIn, setCheckingQoderIn] = useState(false);
+  const [checkingAutoClawIn, setCheckingAutoClawIn] = useState(null);
   const [qoderUmidStatus, setQoderUmidStatus] = useState(null);
   const [importingClineModels, setImportingClineModels] = useState(false);
   const { copied, copy } = useCopyToClipboard();
@@ -639,6 +640,18 @@ export default function ProviderDetailPage() {
     }
   };
 
+  const handleAutoClawCheckin = async connectionId => {
+    if (checkingAutoClawIn) return;
+    setCheckingAutoClawIn(connectionId);
+    try {
+      const res = await fetch(`/api/usage/${connectionId}/autoclaw-checkin`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "AutoClaw check-in failed.");
+      alert(data.message || "AutoClaw check-in completed.");
+    } catch (error) { alert(error.message || "AutoClaw check-in failed."); }
+    finally { setCheckingAutoClawIn(null); }
+  };
+
   // Fetch Qoder model list and automatically add to available models
   const handleImportQoderModels = async () => {
     if (importingQoderModels) return;
@@ -1093,6 +1106,11 @@ export default function ProviderDetailPage() {
                 onMoveUp={() => handleSwapPriority(index, index - 1)}
                 onMoveDown={() => handleSwapPriority(index, index + 1)}
                 onToggleActive={(isActive) => handleUpdateConnectionStatus(conn.id, isActive)}
+                autoclawCheckin={providerId === "autoclaw-intl" && conn.isActive !== false ? {
+                  loading: checkingAutoClawIn === conn.id,
+                  disabled: !!checkingAutoClawIn && checkingAutoClawIn !== conn.id,
+                  onCheckin: () => handleAutoClawCheckin(conn.id),
+                } : null}
                 qoderCheckin={providerId === "qoder" && conn.isActive !== false ? {
                   available: qoderUmidStatus?.available === true,
                   loading: checkingQoderIn === conn.id,
@@ -1899,7 +1917,9 @@ export default function ProviderDetailPage() {
       {bulkActionModal}
 
       {/* Modals */}
-      {providerId === "kiro" ? (
+      {providerId === "autoclaw-intl" ? (
+        <AutoClawOAuthModal isOpen={showOAuthModal} onSuccess={handleOAuthSuccess} onClose={() => setShowOAuthModal(false)} />
+      ) : providerId === "kiro" ? (
         <KiroOAuthWrapper
           isOpen={showOAuthModal}
           providerInfo={providerInfo}

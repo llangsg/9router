@@ -7,7 +7,7 @@ import PropTypes from "prop-types";
 import { Badge, Toggle, Tooltip } from "@/shared/components";
 import CooldownTimer from "./CooldownTimer";
 
-export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, autoPing = null, qoderCheckin = null }) {
+export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, autoPing = null, qoderCheckin = null, autoclawCheckin = null }) {
   const [showProxyDropdown, setShowProxyDropdown] = useState(false);
   const [updatingProxy, setUpdatingProxy] = useState(false);
   const proxyDropdownRef = useRef(null);
@@ -299,6 +299,12 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
               )}
             </div>
           )}
+          {autoclawCheckin && (
+            <button onClick={autoclawCheckin.onCheckin} disabled={autoclawCheckin.loading || autoclawCheckin.disabled} title="Claim this account's daily AutoClaw check-in" className="flex flex-col items-center rounded px-2 py-1 text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-40">
+              <span className="material-symbols-outlined text-[18px]">{autoclawCheckin.loading ? "progress_activity" : "event_available"}</span>
+              <span className="text-[10px] leading-tight">Daily check-in</span>
+            </button>
+          )}
           {qoderCheckin && (
             <button
               onClick={qoderCheckin.onCheckin}
@@ -374,6 +380,7 @@ ConnectionRow.propTypes = {
     state: PropTypes.string,
     error: PropTypes.string,
   }),
+  autoclawCheckin: PropTypes.shape({ loading: PropTypes.bool, disabled: PropTypes.bool, onCheckin: PropTypes.func }),
   qoderCheckin: PropTypes.shape({
     available: PropTypes.bool,
     loading: PropTypes.bool,
