@@ -147,6 +147,7 @@ export function qoderUmidStatus() {
 }
 
 export async function installQoderUmid() {
+  if (qoderUmidStatus().available) return qoderUmidStatus();
   if (!qoderUmidStatus().installSupported) throw new Error("Automatic UMID installation supports Linux x64 and arm64 only. Install Qoder CLI on this host instead.");
   if (installing) throw new Error("Qoder UMID installation is already running");
   installing = true;

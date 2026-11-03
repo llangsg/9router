@@ -7,7 +7,7 @@ import PropTypes from "prop-types";
 import { Badge, Toggle, Tooltip } from "@/shared/components";
 import CooldownTimer from "./CooldownTimer";
 
-export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, autoPing = null }) {
+export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, autoPing = null, qoderCheckin = null }) {
   const [showProxyDropdown, setShowProxyDropdown] = useState(false);
   const [updatingProxy, setUpdatingProxy] = useState(false);
   const proxyDropdownRef = useRef(null);
@@ -299,6 +299,17 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
               )}
             </div>
           )}
+          {qoderCheckin && (
+            <button
+              onClick={qoderCheckin.onCheckin}
+              disabled={!qoderCheckin.available || qoderCheckin.loading}
+              title={qoderCheckin.available ? "Claim this account's daily Qoder check-in" : "Installing Qoder UMID runtime"}
+              className="flex flex-col items-center rounded px-2 py-1 text-emerald-600 hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span className="material-symbols-outlined text-[18px]">{qoderCheckin.loading ? "progress_activity" : "event_available"}</span>
+              <span className="text-[10px] leading-tight">Daily check-in</span>
+            </button>
+          )}
           {autoPing && (
             <Tooltip text={autoPingTooltip}>
               <button
@@ -362,6 +373,11 @@ ConnectionRow.propTypes = {
   oneByOneStatus: PropTypes.shape({
     state: PropTypes.string,
     error: PropTypes.string,
+  }),
+  qoderCheckin: PropTypes.shape({
+    available: PropTypes.bool,
+    loading: PropTypes.bool,
+    onCheckin: PropTypes.func,
   }),
   autoPing: PropTypes.shape({
     isActive: PropTypes.bool,
