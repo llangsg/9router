@@ -43,7 +43,7 @@ const freepi = {
     if (data.status === "pending" || data.retry_after) {
       return { ok: true, data: { error: data.retry_after ? "slow_down" : "authorization_pending", error_description: "Waiting for GitHub authorization" } };
     }
-    return { ok: false, data: { error: data.code || `http_${response.status}`, error_description: data.message || "FreePi token request failed" } };
+    return { ok: false, data: { error: data.code === "expired_token" ? "expired_token" : "access_denied", error_description: data.message || "FreePi token request failed" } };
   },
   postExchange: async tokens => {
     const response = await fetch(`${BASE_URL}/me`, {

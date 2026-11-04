@@ -928,6 +928,13 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           </>
         )}
 
+        {provider === "freepi" && isDeviceCode && !deviceData && step === "waiting" && (
+          <div className="flex items-center justify-center gap-2 text-sm text-text-muted">
+            <span className="material-symbols-outlined animate-spin">progress_activity</span>
+            Preparing FreePi GitHub sign-in…
+          </div>
+        )}
+
         {/* Device Code Flow - Waiting */}
         {step === "waiting" && isDeviceCode && deviceData && (
           <>
