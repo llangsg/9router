@@ -47,6 +47,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   const [authMode, setAuthMode] = useState("browser"); // "browser" | "paste-token"
   const [pasteToken, setPasteToken] = useState("");
   const [ideStatus, setIdeStatus] = useState(null);
+  const [freepiConsentAccepted, setFreepiConsentAccepted] = useState(false);
   const popupRef = useRef(null);
   const pollingAbortRef = useRef(false);
   const openedRef = useRef(false);
@@ -296,6 +297,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         "minimax-code",
         "minimax-code-global",
         "nous",
+        "freepi",
       ];
       if (deviceCodeProviders.includes(provider)) {
         setIsDeviceCode(true);
@@ -498,6 +500,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
     setAuthMode("browser");
     setPasteToken("");
     setIdeStatus(null);
+    setFreepiConsentAccepted(false);
     pollingAbortRef.current = false;
     flowRef.current = { proxyStarted: false, proxyProvider: null, stopSent: false };
     // Best-effort IDE detection for paste-token providers (Trae/Windsurf)
@@ -507,6 +510,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         .then((data) => setIdeStatus(data))
         .catch(() => setIdeStatus({ installed: false, path: null }));
     }
+    if (provider === "freepi") return;
     startOAuthFlowRef.current();
   }, [isOpen, provider]);
 
@@ -764,6 +768,25 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   return (
     <Modal isOpen={isOpen} title={modalTitle} onClose={handleClose} size="lg">
       <div className="flex flex-col gap-4">
+        {provider === "freepi" && !isDeviceCode && step !== "error" && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm leading-relaxed">
+              FreePi.ai provides ad-supported inference. Its consent terms state that prompts, code, files, and model responses may be saved and used to train models, and may be shared or sold. Its ad provider, Gravity, may receive recent conversation excerpts to select ads, plus session and usage data. The terms state that acceptance cannot be withdrawn except where the law allows. This is separate from your 9router data handling.
+              <div className="mt-2 flex gap-3">
+                <a href="https://freepi.ai/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">Terms</a>
+                <a href="https://freepi.ai/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline">Privacy Policy</a>
+              </div>
+            </div>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={freepiConsentAccepted} onChange={event => setFreepiConsentAccepted(event.target.checked)} className="mt-1" />
+              <span>I have reviewed the FreePi.ai data-use terms and agree to continue with GitHub sign-in.</span>
+            </label>
+            <div className="flex gap-2">
+              <Button onClick={startOAuthFlow} fullWidth disabled={!freepiConsentAccepted}>Continue with GitHub</Button>
+              <Button onClick={handleClose} variant="ghost" fullWidth>Cancel</Button>
+            </div>
+          </div>
+        )}
         {/* Proxy OAuth (trae/windsurf/zed): browser flow; paste-token only when configured */}
         {PROXY_OAUTH_PROVIDERS.has(provider) && (step === "waiting" || step === "input" || step === "error") && (
           <>
@@ -841,7 +864,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         )}
 
         {/* Waiting + Manual Input combined (non-device-code, non-proxy) */}
-        {(step === "waiting" || step === "input") && !isDeviceCode && !PROXY_OAUTH_PROVIDERS.has(provider) && (
+        {(step === "waiting" || step === "input") && !isDeviceCode && provider !== "freepi" && !PROXY_OAUTH_PROVIDERS.has(provider) && (
           <>
             {/* Option A: Auto via popup */}
             <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-sidebar/50">

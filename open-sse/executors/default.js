@@ -149,6 +149,37 @@ export class DefaultExecutor extends BaseExecutor {
     super(provider, PROVIDERS[provider] || PROVIDERS.openai);
   }
 
+  async prepareFreePiAd(token, proxyOptions) {
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "User-Agent": "free-pi-cli/0.4.10",
+      "x-session-id": "freepi2api",
+    };
+    try {
+      const adResponse = await proxyAwareFetch("https://api.freepi.ai/ads/next?slot=banner", { headers }, proxyOptions);
+      if (!adResponse.ok) return;
+      const ad = await adResponse.json().catch(() => null);
+      if (!ad?.ad_id || !ad?.click_token) return;
+      await proxyAwareFetch("https://api.freepi.ai/ads/impression", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ ad_id: ad.ad_id, click_token: ad.click_token, imp_fired: true }),
+      }, proxyOptions);
+      if (ad.imp_url) {
+        const pixelUrl = new URL(ad.imp_url);
+        if (pixelUrl.protocol === "https:") await proxyAwareFetch(pixelUrl.toString(), { headers }, proxyOptions);
+      }
+    } catch {}
+  }
+
+  async execute(args) {
+    if (this.provider === "freepi") {
+      const token = args.credentials?.accessToken || args.credentials?.apiKey;
+      if (token) void this.prepareFreePiAd(token, args.proxyOptions);
+    }
+    return super.execute(args);
+  }
+
   transformRequest(model, body, stream, credentials) {
     if (this.provider === "autoclaw-intl" && body && typeof body === "object") {
       body = { ...body, model: resolveAutoClawModel(model).bodyModel };
